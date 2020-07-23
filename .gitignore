@@ -1,3 +1,5 @@
 *.asc
 *.bin
 *.json
+*.vvp
+*.vcd
