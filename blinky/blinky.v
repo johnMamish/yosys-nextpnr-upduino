@@ -3,7 +3,7 @@ module blinker(input       clock,
                output      blink);
     reg [23:0] counter;
 
-    assign blink = counter[22];
+    assign blink = counter[21];
 
     always @(posedge clock) begin
         if (!reset) begin
@@ -26,7 +26,14 @@ module resetter(input      clock,
 endmodule
 
 
-module top(output led);
+// The name blinky_top is arbitrary. It just needs to be specified in the yosys synthesis script
+// with the -top argument passed into synth_ice40
+module blinky_top(output spi_cs,
+                  output led);
+
+    assign spi_cs = 1'b1;
+
+    // This oscillator is a hard IP core inside the ice40.
     wire clk_48;
     SB_HFOSC u_hfosc(.CLKHFPU(1'b1),
 		     .CLKHFEN(1'b1),
