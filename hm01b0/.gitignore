@@ -2,4 +2,4 @@
 # Reference Design Licence Agreement and can be downloaded from latticesemi.com with a free 
 # account.
 lattice_i2c
-
+*.csv

@@ -1,0 +1,4 @@
+# Exclude logic traces from the hm01b0
+*.txt
+*.logicdata
+__pycache__
