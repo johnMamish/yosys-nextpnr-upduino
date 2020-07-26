@@ -9,6 +9,6 @@ uart_top_tb.vvp: uart_top.v uart.v sb_hfosc.v uart_top_tb.v
 	iverilog $^ -Wall -o $@
 
 clean:
-	rm uart.bin uart.asc uart.json
+	rm uart.bin uart.asc uart.json uart_top.vvp
 
 .PHONY: clean
