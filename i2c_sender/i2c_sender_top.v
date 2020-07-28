@@ -20,8 +20,10 @@ module i2c_sender_top(inout sda,
     SB_HFOSC u_hfosc(.CLKHFPU(1'b1), .CLKHFEN(1'b1), .CLKHF(clk_48));
     always @(posedge clk_48) clk_24 = ~clk_24;
 
-    wire reset;
+    wire reset, reset2;
     resetter r(.clock(clk_24), .reset(reset));
+    resetter r2(.clock(clk_24), .reset(reset2));
+    defparam r2.count_maxval = 1023;
 
     wire sysclk;
     divide_by_n #(.N(48)) div(.clk(clk_48), .reset(reset), .out(sysclk));
@@ -37,7 +39,7 @@ module i2c_sender_top(inout sda,
     wire [7:0] sbadr;
     wire [7:0] sbdat_from_controller;
     i2c_sender send(.clock(sysclk),
-                    .reset(reset),
+                    .reset(reset2),
 
                     .sbdat_from_peripheral(sbdat_from_peripheral),
                     .sback(sback),
@@ -47,14 +49,16 @@ module i2c_sender_top(inout sda,
                     .sbrw(sbrw),
                     .sbstb(sbstb),
                     .sbadr(sbadr),
-                    .sbdat_to_peripheral(sbdat_from_controller),
+                    .sbdat_to_peripheral(sbdat_from_controller));
 
-                    .expose_sbc_state(debug_leds[4:3]));
+                    //.expose_sbc_state(debug_leds[2:1]));
+                    //.expose_state(debug_leds[4:1]));
 
     assign debug_leds[0] = sysclk;
-    assign debug_leds[1] = sbadr[0];
-    assign debug_leds[2] = sbadr[1];
-    assign debug_leds[5] = sback;
+    assign debug_leds[2:1] = sbadr[5:4];
+    assign debug_leds[3] = sback;
+    assign debug_leds[4] = sbrw;
+    assign debug_leds[5] = sbstb;
     SB_I2C i2c1(.SBCLKI(sysclk),
 	        .SBRWI(sbrw),
 	        .SBSTBI(sbstb),

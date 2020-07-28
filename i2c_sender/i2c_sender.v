@@ -134,7 +134,8 @@ endmodule
 `define I2C_PERIPHERAL_DEVICE_ADDR (7'h23)
 `define XFER_WIDTH (3)
 
-`define I2C_CR1_ADDR         4'b0001
+//`define I2C_CR1_ADDR         4'b0001
+`define I2C_CR1_ADDR         4'b1000
 `define I2C_BRLSB_ADDR       4'b0010
 `define I2C_BRMSB_ADDR       4'b0011
 `define I2C_SADDR_ADDR       4'b0100
@@ -170,7 +171,8 @@ module i2c_sender(input                clock,
                   output     [7:0]     sbadr,
                   output     [7:0]     sbdat_to_peripheral,
 
-                  output     [1:0]           expose_sbc_state);
+                  output     [1:0]           expose_sbc_state,
+                  output     [3:0]           expose_state);
     parameter [3:0] addr74 = 4'b0001;
 
     // State machine for managing "Lattice System Bus" transactions
@@ -231,6 +233,8 @@ module i2c_sender(input                clock,
     reg [ptr_len - 1 : 0] data_ptr_next;
     reg [1:0] i2c_txn_counter;
     reg [1:0] i2c_txn_counter_next;
+
+    assign expose_state = sender_state;
     always @* begin
         if (!reset) begin
             bus_controller_addr = 8'hxx;

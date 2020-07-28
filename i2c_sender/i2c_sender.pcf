@@ -7,36 +7,39 @@ set_io scl 4
 set_io debug_leds[0] 28
 set_io debug_leds[1] 38
 set_io debug_leds[2] 42
-set_io debug_leds[3] 35
+set_io debug_leds[3] 2
 set_io debug_leds[4] 43
 set_io debug_leds[5] 34
 
+#NB: for some reason, pin 35 gave me issues... idk if it's just blown out on my board or what.
+#could also be because it's designated to be a big clock global buffer input?
+
 # Normal GPIO pins, left side
-set_io -nowarn -pullup yes unused_2 2
-set_io -nowarn -pullup yes unused_3 3
-set_io -nowarn -pullup yes unused_4 4
-set_io -nowarn -pullup yes unused_6 6
-set_io -nowarn -pullup yes unused_9 9
-set_io -nowarn -pullup yes unused_11 11
-set_io -nowarn -pullup yes unused_12 12
-set_io -nowarn -pullup yes unused_13 13
-set_io -nowarn -pullup yes unused_15 15
-set_io -nowarn -pullup yes unused_18 18
-set_io -nowarn -pullup yes unused_19 19
-set_io -nowarn -pullup yes unused_21 21
-set_io -nowarn -pullup yes unused_23 23
-set_io -nowarn -pullup yes unused_25 25
-set_io -nowarn -pullup yes unused_26 26
-set_io -nowarn -pullup yes unused_27 27
-set_io -nowarn -pullup yes unused_31 31
-set_io -nowarn -pullup yes unused_32 32
-set_io -nowarn -pullup yes unused_36 36
-set_io -nowarn -pullup yes unused_37 37
-set_io -nowarn -pullup yes unused_39 39
-set_io -nowarn -pullup yes unused_40 40
-set_io -nowarn -pullup yes unused_41 41
-set_io -nowarn -pullup yes unused_44 44
-set_io -nowarn -pullup yes unused_45 45
-set_io -nowarn -pullup yes unused_46 46
-set_io -nowarn -pullup yes unused_47 47
-set_io -nowarn -pullup yes unused_48 48
+#set_io -nowarn -pullup yes unused_2 2
+#set_io -nowarn -pullup yes unused_3 3
+#set_io -nowarn -pullup yes unused_4 4
+#set_io -nowarn -pullup yes unused_6 6
+#set_io -nowarn -pullup yes unused_9 9
+#set_io -nowarn -pullup yes unused_11 11
+#set_io -nowarn -pullup yes unused_12 12
+#set_io -nowarn -pullup yes unused_13 13
+#set_io -nowarn -pullup yes unused_15 15
+#set_io -nowarn -pullup yes unused_18 18
+#set_io -nowarn -pullup yes unused_19 19
+#set_io -nowarn -pullup yes unused_21 21
+#set_io -nowarn -pullup yes unused_23 23
+#set_io -nowarn -pullup yes unused_25 25
+#set_io -nowarn -pullup yes unused_26 26
+#set_io -nowarn -pullup yes unused_27 27
+#set_io -nowarn -pullup yes unused_31 31
+#set_io -nowarn -pullup yes unused_32 32
+#set_io -nowarn -pullup yes unused_36 36
+#set_io -nowarn -pullup yes unused_37 37
+#set_io -nowarn -pullup yes unused_39 39
+#set_io -nowarn -pullup yes unused_40 40
+#set_io -nowarn -pullup yes unused_41 41
+#set_io -nowarn -pullup yes unused_44 44
+#set_io -nowarn -pullup yes unused_45 45
+#set_io -nowarn -pullup yes unused_46 46
+#set_io -nowarn -pullup yes unused_47 47
+#set_io -nowarn -pullup yes unused_48 48
