@@ -24,12 +24,14 @@ endmodule
 
 module resetter(input      clock,
                 output     reset);
-    assign reset = (reset_count == 8'hff) ? 1'b0 : 1'b1;
+    parameter count_maxval = 255;
+    localparam count_width = $clog2(count_maxval);
 
-    reg [7:0] reset_count;
-    initial reset_count = 8'h00;
+    reg [count_width - 1:0] reset_count;
+    assign reset = (reset_count == count_maxval) ? 1'b0 : 1'b1;
+    initial reset_count = 'h0;
 
     always @(posedge clock) begin
-        reset_count <= (reset_count == 8'hff) ? 8'hff : reset_count + 8'h01;
+        reset_count <= (reset_count == count_maxval) ? count_maxval : reset_count + 'h01;
     end
 endmodule
