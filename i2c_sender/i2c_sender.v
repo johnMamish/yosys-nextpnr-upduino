@@ -29,7 +29,9 @@ module lattice_system_bus_controller(input                clock,
                                      output reg           sbrw,
                                      output reg           sbstb,
                                      output reg [7:0]     sbadr,
-                                     output reg [7:0]     sbdat_to_peripheral);
+                                     output reg [7:0]     sbdat_to_peripheral,
+
+                                     output         [1:0] expose_state);
     assign sbclk = clock;
 
 `define SBRW_READ 1'b0
@@ -50,8 +52,17 @@ module lattice_system_bus_controller(input                clock,
 
     // severe multi-module latch risk here...
     assign ready = (!busy && !start_transaction) || (sback);
+    assign expose_state = state;
 
     always @* begin
+        // default values
+        state_next = `S_0;
+        sbrw_next = 1'b0;
+        sbadr_next = 8'h00;
+        sbdat_to_peripheral_next = 8'h00;
+        busy_next = 1'b0;
+        read_data_next = 8'hxx;
+        sbstb = 1'b0;
         case (state)
             `S_0: begin
                 if (start_transaction) begin
@@ -59,13 +70,13 @@ module lattice_system_bus_controller(input                clock,
                     sbrw_next = read_write;
                     sbadr_next = addr;
                     sbdat_to_peripheral_next = (read_write == `SBRW_WRITE) ?  write_data : 8'hxx;
-                    busy_next = 1'b0;
+                    busy_next = 1'b1;
                 end else begin
                     state_next = `S_0;
                     sbrw_next = 1'bx;
                     sbadr_next = 8'hxx;
                     sbdat_to_peripheral_next = 8'hxx;
-                    busy_next = 1'b1;
+                    busy_next = 1'b0;
                 end
                 read_data_next = read_data;
                 sbstb = 1'b0;
@@ -78,7 +89,7 @@ module lattice_system_bus_controller(input                clock,
                 sbadr_next = sbadr;
                 sbdat_to_peripheral_next = sbdat_to_peripheral;
                 read_data_next = read_data;
-                busy_next = 1'b0;
+                busy_next = 1'b1;
             end
 
             `S_2: begin
@@ -86,12 +97,12 @@ module lattice_system_bus_controller(input                clock,
                     state_next = `S_0;
                     sbrw_next = 1'bx;
                     read_data_next = (sbrw == `SBRW_WRITE) ? 8'hxx : sbdat_from_peripheral;
-                    busy_next = 1'b1;
+                    busy_next = 1'b0;
                 end else begin
                     state_next = `S_2;
                     sbrw_next = sbrw;
                     read_data_next = read_data;
-                    busy_next = 1'b0;
+                    busy_next = 1'b1;
                 end
                 sbstb = 1'b1;
                 sbadr_next = sbadr;
@@ -157,7 +168,9 @@ module i2c_sender(input                clock,
                   output               sbrw,
                   output               sbstb,
                   output     [7:0]     sbadr,
-                  output     [7:0]     sbdat_to_peripheral);
+                  output     [7:0]     sbdat_to_peripheral,
+
+                  output     [1:0]           expose_sbc_state);
     parameter [3:0] addr74 = 4'b0001;
 
     // State machine for managing "Lattice System Bus" transactions
@@ -189,7 +202,8 @@ module i2c_sender(input                clock,
                                       .sbrw(sbrw),
                                       .sbstb(sbstb),
                                       .sbadr(sbadr),
-                                      .sbdat_to_peripheral(sbdat_to_peripheral));
+                                      .sbdat_to_peripheral(sbdat_to_peripheral),
+                                      .expose_state(expose_sbc_state));
 
     localparam num_i2c_setup_registers = 5;
     reg [7:0] i2c_setup_data  [0:(num_i2c_setup_registers - 1)];

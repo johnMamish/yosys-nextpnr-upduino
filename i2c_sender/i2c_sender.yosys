@@ -1,2 +1,2 @@
-read_verilog i2c_sender_top.v lattice_system_bus_controller.v ../common/util.v
+read_verilog i2c_sender.v i2c_sender_top.v ../common/util.v
 synth_ice40 -top i2c_sender_top -json i2c_sender.json
