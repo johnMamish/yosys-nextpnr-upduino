@@ -4,10 +4,11 @@ module divide_by_n(input clk,
 	           input reset,
 	           output out);
     parameter N = 2;
-    localparam cwidth = $clog2(N);
+    localparam cwidth = $clog2(N - 1);
     reg [cwidth - 1:0] counter;
+    initial counter = 0;
 
-    assign out = (counter < (N / 2)) ? 1'b0 : 1'b1;
+    assign out = (counter < (N >> 1)) ? 1'b1 : 1'b0;
 
     always @(posedge clk) begin
 	if (reset) begin
@@ -33,5 +34,30 @@ module resetter(input      clock,
 
     always @(posedge clock) begin
         reset_count <= (reset_count == count_maxval) ? count_maxval : reset_count + 'h01;
+    end
+endmodule
+
+/**
+ * Waits for "pulse_delay" clock cycles, then holds "pulse" high for "pulse_width" cycles.
+ */
+module pulse_one(input clock,
+                 input reset,
+                 output pulse);
+    parameter pulse_delay = 511;
+    parameter pulse_width = 15;
+    localparam pulse_maxval = pulse_delay + pulse_width + 1;
+    localparam pulse_bitwidth = $clog2(pulse_maxval);
+
+    reg [pulse_bitwidth - 1 : 0] count;
+    initial count = {{pulse_bitwidth{1'b0}}};
+
+    assign pulse = ((count > pulse_delay) && (count < pulse_maxval));
+
+    always @(posedge clock) begin
+        if (!reset) begin
+            count <= (count == pulse_maxval) ? pulse_maxval : count + 'h01;
+        end else begin
+            count <= {{pulse_bitwidth{1'b0}}};
+        end
     end
 endmodule
