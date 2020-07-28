@@ -1,3 +1,5 @@
+`timescale 1ns/100ps
+
 module blinker(input       clock,
                input       reset,
                output      blink);
@@ -14,18 +16,6 @@ module blinker(input       clock,
     end
 endmodule
 
-
-module resetter(input      clock,
-                output     reset);
-    reg [7:0] reset_count;
-    initial reset_count = 8'h00;
-
-    always @(posedge clock) begin
-        reset_count <= (reset_count == 8'hff) ? 8'hff : reset_count + 8'h01;;
-    end
-endmodule
-
-
 // The name blinky_top is arbitrary. It just needs to be specified in the yosys synthesis script
 // with the -top argument passed into synth_ice40
 module blinky_top(output spi_cs,
@@ -39,6 +29,7 @@ module blinky_top(output spi_cs,
 		     .CLKHFEN(1'b1),
 		     .CLKHF(clk_48));
 
+    // Module "resetter" is defined in ../common/util.v
     wire reset;
     resetter r(.clock(clk_48),
                .reset(reset));
