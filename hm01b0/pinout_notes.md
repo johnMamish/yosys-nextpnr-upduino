@@ -23,8 +23,8 @@ Lattice doesn't provide any documenation about the pinout for the connection fro
 | 9      | nothing?          |
 | 18     | nothing?          |
 | 13     | nothing?          |
-| 38     | active-high / active-hi-z led  |
 | 28     | active-high / active-hi-z led  |
+| 38     | active-high / active-hi-z led  |
 | 42     | active-high / active-hi-z led  |
 | 35     | active-high / active-hi-z led  |
 | 43     | active-high / active-hi-z led  |
