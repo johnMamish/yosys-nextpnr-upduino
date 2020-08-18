@@ -2,23 +2,23 @@
 
 module divide_by_n(input clk,
 	           input reset,
-	           output out);
+	           output reg out);
     parameter N = 2;
     localparam cwidth = $clog2(N - 1);
     reg [cwidth - 1:0] counter;
-    initial counter = 0;
-
-    assign out = (counter < (N >> 1)) ? 1'b1 : 1'b0;
 
     always @(posedge clk) begin
 	if (reset) begin
-	  counter <= 0;
+	    counter <= N - 1;
+            out <= 1'b0;
 	end else begin
-	  if (counter == 0) begin
-	      counter <= N - 1;
-	  end else begin
-	      counter <= counter - 1;
-          end
+	    if (counter == 0) begin
+	        counter <= N - 1;
+	    end else begin
+	        counter <= counter - 1;
+            end
+
+            out <= (counter < (N >> 1)) ? 1'b1 : 1'b0;
         end
     end
 endmodule
@@ -58,6 +58,19 @@ module pulse_one(input clock,
             count <= (count == pulse_maxval) ? pulse_maxval : count + 'h01;
         end else begin
             count <= {{pulse_bitwidth{1'b0}}};
+        end
+    end
+endmodule
+
+/**
+ * input: 4'd12, output: 8'd99 (ascii for 'c')
+ */
+module hexdigit(input [3:0] num, output reg [7:0] ascii);
+    always @* begin
+        if (num < 4'd10) begin
+            ascii = {4'h0, num} + 8'h30;
+        end else begin
+            ascii = {4'h0, num} + 8'h57;
         end
     end
 endmodule
