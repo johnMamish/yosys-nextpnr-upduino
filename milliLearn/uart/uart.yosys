@@ -1,0 +1,2 @@
+read_verilog uart.v uart_top.v ../../common/util.v
+synth_ice40 -top uart_top -json uart.json
