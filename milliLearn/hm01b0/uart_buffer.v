@@ -60,8 +60,8 @@ module spram_uart_buffer(
     input       data_in_valid,
     output  reg uart_tx
 );
-    parameter max_address = 15'h3FFF; //7FFF for full 32kB
-    parameter clock_divider = 7'd6; //13 or 104 for standard bauds from 12mhz:
+    parameter max_address = 15'h7FFF; //7FFF for full 32kB
+    parameter clock_divider = 7'd104; //13 or 104 for standard bauds from 12mhz:
     //12_000_000 / 13  = 923_076.923 ~ 921_600
     //12_000_000 / 104 = 115_384.615 ~ 115_200
 
@@ -153,6 +153,8 @@ module spram_uart_buffer(
 
     always @* begin
         data_in_reg_next = data_in;
+        address_0_next = address_0;
+        address_1_next = address_1;
         if (reset) begin
             state_next = `WRITE_1; //== `TX_0
 
