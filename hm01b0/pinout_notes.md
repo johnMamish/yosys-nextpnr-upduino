@@ -17,8 +17,8 @@ Lattice doesn't provide any documenation about the pinout for the connection fro
 | 19     | hm01b0 pixclk out?  ~10.33 MHz |
 | 21     | pix[0]            |
 | 12     | pix[1]            |
-| 31     | pix[3]            |
 | 37     | pix[2]            |
+| 31     | pix[3]            |
 |        |                   |
 | 9      | nothing?          |
 | 18     | nothing?          |

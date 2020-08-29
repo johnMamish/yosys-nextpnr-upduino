@@ -311,8 +311,8 @@ module hm01b0_top(input                  osc_12m,
     grayscale_downsampler ds(.clock(osc_12m), .reset(reset),
                              .vsync_in(ingester_vsync), .data_in_valid(ingester_data_out_valid), .data_in(ingester_data_out),
                              .vsync_out(downsampler_vsync), .data_out_valid(downsampler_data_out_valid), .data_out(downsampler_data_out));
-    defparam ds.bin_width = 4;
-    defparam ds.bin_height = 4;
+    defparam ds.bin_width = 2;
+    defparam ds.bin_height = 2;
 
     wire frame_end_stuffer_data_out_valid;
     wire [7:0] frame_end_stuffer_data_out;
@@ -329,6 +329,6 @@ module hm01b0_top(input                  osc_12m,
                              .data_in_valid(frame_end_stuffer_data_out_valid),
                              .uart_tx(uart_tx_config_copi));
     defparam outbuf.clock_divider = 7'd6;
-    defparam outbuf.max_address = 15'd19200 / 4;
+    defparam outbuf.max_address = 15'd19200 / 1;
     assign gpio[5:0] = { state, frame_end_stuffer_data_out_valid, ingester_data_out_valid, hm01b0_vsync, hm01b0_hsync, hm01b0_pixclk};
 endmodule

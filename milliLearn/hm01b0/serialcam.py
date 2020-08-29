@@ -5,8 +5,8 @@ import serial
 import io
 import numpy as np
 
-width = int(320 / 4)
-height = int(240 / 4)
+width = int(320 / 2)
+height = int(240 / 2)
 
 screen = pygame.display.set_mode((width * 4, height * 4))
 pygame.display.flip()
