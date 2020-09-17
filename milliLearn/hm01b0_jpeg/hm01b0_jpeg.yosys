@@ -1,0 +1,18 @@
+read_verilog -defer ../../common/util.v ../../common/uart.v hm01b0_jpeg_top.v ./i2c_init.v ./i2c_master.v ./uart_buffer.v ./grayscale_downsampler.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/bitpacker.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/hm01b0_ingester.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/loeffler_dct_88.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/loeffler_dct_8.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/pipelined_multiplier.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/coefficient_encoder.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/jpeg_huffman_encode.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/ice40_ebr.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/pipelined_divider.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/jfpjc.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/address_zigzagger.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/width_adapter_buffer.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/bytestuffer.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/dct_reset_manager.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/quantizer_manager_fsm.v
+read_verilog -defer ./jfpjc/jfpjc/verilog/padding_trimmer.v
+synth_ice40 -top hm01b0_jpeg_top -json hm01b0_jpeg.json -noflatten
