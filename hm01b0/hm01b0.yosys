@@ -1,0 +1,2 @@
+read_verilog ./i2c_init.v ./i2c_master.v ../common/util.v hm01b0_top.v ./uart.v
+synth_ice40 -top hm01b0_top -json hm01b0.json

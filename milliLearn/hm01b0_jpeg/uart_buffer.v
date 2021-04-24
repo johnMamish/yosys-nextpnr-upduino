@@ -296,3 +296,232 @@ module spram_uart_buffer(
         reset_flag <= reset_flag_next;
     end
 endmodule
+
+
+module spram_uart_dual_buffer(input               clock,
+                              input               reset,
+
+                              input [7:0]         data_in,
+                              input               data_in_valid,
+                              input               vsync_in,
+
+                              output              uart_tx,
+                              output reg          vsync_out);
+    localparam max_address = 15'h7fff;
+    localparam addr_width = ($clog2(max_address));
+    parameter clock_divider = 7'd13; //e.g. 104 will give 115,200 from 12MHz
+
+    ////////////////////////////////////////////////////////////////////////////
+    // input latches
+    // These are here to delay the inputs by one clock cycle so that rising and falling edges on
+    // vsync can be detected and reacted to with the right timing. We need to give the uart some
+    // time to drain the buffer inter-frame.
+    reg vsync_in_prev [0:1];
+    reg [7:0] data_in_prev;
+    reg data_in_valid_prev;
+
+    always @ (posedge clock) begin
+        if (reset) begin
+            vsync_in_prev[0] <= 1'b0;
+            vsync_in_prev[1] <= 1'b0;
+            data_in_prev     <= 8'hxx;
+            data_in_valid_prev <= 1'b0;
+        end else begin
+            vsync_in_prev[0] <= vsync_in;
+            vsync_in_prev[1] <= vsync_in_prev[0];
+            data_in_prev <= data_in;
+            data_in_valid_prev <= data_in_valid;
+        end
+    end
+
+    ////////////////////////////////////////////////////////////////////////////
+    // State registers
+    // Points to the active buffer where data_in will be sent.
+    reg frontbuffer;
+    wire backbuffer = (frontbuffer + 'h1);
+
+    // Holds the number of bytes written to each buffer. Only valid for the backbuffer (the buffer
+    // that 'frontbuffer' isn't pointing to).
+    reg [(addr_width - 1): 0] bytes_in_buffer [0:1];
+
+    // Addresses where data_in will be written to or uart_tx data will be read from
+    reg [(addr_width - 1): 0] frontbuffer_write_pointer;
+    reg [(addr_width - 1): 0] backbuffer_read_pointer;
+
+    // Because of how the ice40's 256kb SPRAM works (read 16 bit at once), we need to delay bit 0
+    // of the backbuffer read pointer by one cycle
+    reg backbuffer_read_pointer_0_prev;
+
+    always @(posedge clock) backbuffer_read_pointer_0_prev <= backbuffer_read_pointer[0];
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Wires
+
+    ////////////////////////////////////////////////////////////////////////////
+    // SPRAM instantiation
+    reg [(addr_width - 1):0] spram_address [0:1];
+    reg spram_wren [0:1];
+    wire [15:0] spram_data_out [0:1];
+    reg [15:0] spram_data_in  [0:1];
+
+    SB_SPRAM256KA spram_0(.DATAIN(spram_data_in[0]),
+                          .ADDRESS(spram_address[0][(addr_width - 1):1]),
+                          .MASKWREN({{2{spram_address[0][0]}}, {2{!spram_address[0][0]}}}), //0011 or 1100 for lsB or msB
+                          .WREN(spram_wren[0]),
+                          .CHIPSELECT(1'b1),
+                          .CLOCK(clock),
+                          .STANDBY(1'b0),
+                          .SLEEP(1'b0),
+                          .POWEROFF(1'b1),
+                          .DATAOUT(spram_data_out[0]));
+
+    SB_SPRAM256KA spram_1(.DATAIN(spram_data_in[1]),
+                          .ADDRESS(spram_address[1][(addr_width - 1):1]),
+                          .MASKWREN({{2{spram_address[1][0]}}, {2{!spram_address[1][0]}}}),
+                          .WREN(spram_wren[1]),
+                          .CHIPSELECT(1'b1),
+                          .CLOCK(clock),
+                          .STANDBY(1'b0),
+                          .SLEEP(1'b0),
+                          .POWEROFF(1'b1),
+                          .DATAOUT(spram_data_out[1]));
+
+    ////////////////////////////////////////////////////////////////////////////
+    // combinational logic for driving SPRAM inputs.
+    always @* begin
+        spram_data_in[0] = {data_in_prev, data_in_prev};
+        spram_data_in[1] = {data_in_prev, data_in_prev};
+
+        case (frontbuffer)
+            1'b0: begin
+                spram_address[0] = frontbuffer_write_pointer;
+                spram_address[1] = backbuffer_read_pointer;
+
+                spram_wren[0]    = data_in_valid_prev;
+                spram_wren[1]    = 1'b0;
+            end
+            1'b1: begin
+                spram_address[0] = backbuffer_read_pointer;
+                spram_address[1] = frontbuffer_write_pointer;
+
+                spram_wren[0]    = 1'b0;
+                spram_wren[1]    = data_in_valid_prev;
+            end
+        endcase
+    end
+
+    ////////////////////////////////////////////////////////////////////////////
+    // UART transmitter instantiation
+    wire baud_clock;
+    defparam div.N = clock_divider;
+    divide_by_n div(.clk(clock),
+                    .reset(reset),
+                    .out(baud_clock));
+
+    reg uart_data_valid;
+    reg [7:0] uart_data;
+    wire uart_busy; //driven by uart_tx
+    reg uart_busy_prev;
+    uart_tx ut(.clock(clock),
+               .reset(reset),
+               .baud_clock(baud_clock),
+               .data_valid(uart_data_valid),
+               .data(uart_data),
+               .uart_tx(uart_tx),
+               .uart_busy(uart_busy));
+
+    always @* begin
+        uart_data = spram_data_out[backbuffer][(backbuffer_read_pointer_0_prev * 8) +: 8];
+    end
+
+    always @(posedge clock) begin
+        uart_busy_prev <= uart_busy;
+    end
+
+
+    ////////////////////////////////////////////////////////////////////////////
+    // Main state machine
+    // vsync should stay high for, say, 8 uart bytes after frame is done sending.
+    localparam vsync_delay_holdoff = clock_divider * 9 * 8;
+    reg [($clog2(vsync_delay_holdoff) - 1):0] vsync_delay_count;
+    always @(posedge clock) begin
+        if (reset) begin
+            frontbuffer <= 1'b0;
+            bytes_in_buffer[0] <= 'h0;
+            bytes_in_buffer[1] <= 'h0;
+            frontbuffer_write_pointer <= 'h0;
+            uart_data_valid <= 1'b0;
+            backbuffer_read_pointer  <= 'h0;
+            vsync_out <= 'h0;
+            vsync_delay_count <= 'h0;
+        end else begin
+            // on rising edge of vsync, a new frame starts. stop everything to swap buffers and
+            // reset count.
+            // Strictly speaking, we don't need to swap the read head at this point,
+            // but letting the read pointer pull from the same buffer as the write pointer is
+            // writing to complicates logic to cover an edge case we don't ever expect to see.
+            if ((vsync_in_prev[1] == 1'b0) && (vsync_in_prev[0] == 1'b1)) begin
+                case (frontbuffer)
+                    1'b0: begin
+                        frontbuffer <= 1'b1;
+                        bytes_in_buffer[0] <= frontbuffer_write_pointer;
+                        bytes_in_buffer[1] <= 'hxx;
+                        frontbuffer_write_pointer <= 'h0;
+                        backbuffer_read_pointer <= 'h0;
+                        vsync_delay_count <= 'h0;
+                    end
+
+                    1'b1: begin
+                        frontbuffer <= 1'b0;
+                        bytes_in_buffer[0] <= 'hxx;
+                        bytes_in_buffer[1] <= frontbuffer_write_pointer;
+                        frontbuffer_write_pointer <= 'h0;
+                        backbuffer_read_pointer <= 'h0;
+                        vsync_delay_count <= 'h0;
+                    end
+                endcase
+            end else begin
+                frontbuffer <= frontbuffer;
+
+                bytes_in_buffer[0] <= bytes_in_buffer[0];
+                bytes_in_buffer[1] <= bytes_in_buffer[1];
+
+                if (data_in_valid_prev) begin
+                    frontbuffer_write_pointer <= (frontbuffer_write_pointer + 'h1);
+                end else begin
+                    frontbuffer_write_pointer <= frontbuffer_write_pointer;
+                end
+
+                if ((bytes_in_buffer[backbuffer] != backbuffer_read_pointer) &&
+                    ((!uart_busy && uart_busy_prev) || (backbuffer_read_pointer == 'h0))) begin
+                    // There are more characters left to send AND uart isn't busy.
+                    // On the current cycle, the data pointed by backbuffer_read_pointer is
+                    // output on spram_data_out.
+                    // This could be done with combinational logic to save a clock cycle, but
+                    // that risks a combinational loop depending on how uart_tx is implemented
+                    // internally and the small performance gain isn't worth it.
+                    uart_data_valid <= 1'b1;
+                    backbuffer_read_pointer <= backbuffer_read_pointer + 'h1;
+                end else begin
+                    uart_data_valid <= 1'b0;
+                    backbuffer_read_pointer <= backbuffer_read_pointer;
+                end
+
+                // if we've reached the end of the frame and the UART is done transmitting, start
+                // incrementing the vsync delay counter.
+                if ((bytes_in_buffer[backbuffer] == backbuffer_read_pointer) && (!uart_busy)) begin
+                    if (vsync_delay_count == vsync_delay_holdoff) begin
+                        vsync_delay_count <= vsync_delay_count;
+                        vsync_out <= 1'b0;
+                    end else begin
+                        vsync_delay_count <= vsync_delay_count + 'h1;
+                        vsync_out <= 1'b1;
+                    end
+                end else begin
+                    vsync_delay_count <= 'h0;
+                    vsync_out <= 1'b1;
+                end
+            end
+        end
+    end
+endmodule

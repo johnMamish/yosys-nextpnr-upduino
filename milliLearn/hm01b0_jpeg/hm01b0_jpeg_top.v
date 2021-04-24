@@ -1,15 +1,21 @@
 `timescale 1ns/100ps
 
+/**
+ * Puts some data in at the end of a frame delimited by a vsync signal.
+ *
+ * Incoming vsync is active high.
+ */
 module frame_end_stuffer(input                      clock,
                          input                      reset,
 
                          input                      data_in_valid,
-                         input                      vsync,
+                         input                      vsync_in,
                          input [7:0]                data_in,
 
                          output reg                 state,
                          output reg                 data_out_valid,
-                         output reg [7:0]           data_out);
+                         output reg [7:0]           data_out,
+                         output reg                 vsync_out);
     parameter delimiter_length = 32;   // should be a multiple of 8.
     parameter [(delimiter_length - 1):0] delimiter = 32'hf00f_ba11;
     localparam delimiter_index_maxvalue = (delimiter_length / 8) - 1;
@@ -17,45 +23,62 @@ module frame_end_stuffer(input                      clock,
     reg vsync_prev [0:1];
 
     always @* begin
-        vsync_prev[0] = vsync;
+        vsync_prev[0] = vsync_in;
     end
 
     localparam STATE_IMAGE = 1'b0;
     localparam STATE_DELIMITER = 1'b1;
     //reg state;
     reg [($clog2(delimiter_index_maxvalue) - 1):0] delimiter_index;
-    reg [7:0] gen_count;
     always @(posedge clock) begin
-        vsync_prev[1] <= vsync_prev[0];
+        if (reset) begin
+            data_out_valid <= 1'b0;
+            dat_out <= 'hxx;
+            vsync_out <= 1'b0;
+            vsync_prev[1] <= 1'b0;
+            state <= STATE_IMAGE;
+            delimiter_index <= 'hxx;
+        end else begin
+            vsync_prev[1] <= vsync_prev[0];
 
-        case (state)
-            STATE_IMAGE: begin
-                data_out_valid <= data_in_valid;
-                data_out <= data_in;
-                if (!vsync_prev[0] && vsync_prev[1]) begin
-                    state <= STATE_DELIMITER;
-                end else begin
-                    state <= state;
-                end
-                delimiter_index <= 'h0;
-            end
+            case (state)
+                STATE_IMAGE: begin
+                    data_out_valid <= data_in_valid;
+                    data_out <= data_in;
 
-            STATE_DELIMITER: begin
-                data_out_valid <= 1'b1;
-                data_out <= delimiter[(((delimiter_length / 8) - delimiter_index - 1) * 8) +: 8];
-
-                if (delimiter_index == delimiter_index_maxvalue) begin
+                    if (!vsync_prev[0] && vsync_prev[1]) begin
+                        vsync_out <= 1'b1;
+                        state <= STATE_DELIMITER;
+                    end else begin
+                        vsync_out <= vsync_in;
+                        state <= state;
+                    end
                     delimiter_index <= 'h0;
-                    state <= STATE_IMAGE;
-                end else begin
-                    delimiter_index <= delimiter_index + 'h1;
-                    state <= state;
+
                 end
-            end
-        endcase
+
+                STATE_DELIMITER: begin
+                    data_out_valid <= 1'b1;
+                    data_out <= delimiter[(((delimiter_length / 8) - delimiter_index - 1) * 8) +: 8];
+
+                    if (delimiter_index == delimiter_index_maxvalue) begin
+                        delimiter_index <= 'h0;
+                        state <= STATE_IMAGE;
+                        vsync_out <= 1'b1;
+                    end else begin
+                        delimiter_index <= delimiter_index + 'h1;
+                        state <= state;
+                        vsync_out <= 1'b1;
+                    end
+                end
+            endcase
+        end
     end
 endmodule
 
+
+//`define USE_FORENCICH_I2C
+`ifdef USE_FORENCICH_I2C
 module i2c_initializer(input                  clock,
                        input                  reset,
                        inout                  hm01b0_sda,
@@ -125,6 +148,129 @@ module i2c_initializer(input                  clock,
 
                           .prescale(16'd16), .stop_on_idle(1'b1));
 endmodule
+`else //  `ifdef NOT_DEFINED
+`define DEV_ID 8'h24
+module i2c_initializer(
+    input clock, //should be 12mhz
+    input reset,
+
+    inout hm01b0_sda,
+    inout hm01b0_scl,
+);
+    reg sda,scl;
+    assign hm01b0_sda = sda ? 1'bz : 1'b0;
+    assign hm01b0_scl = scl ? 1'bz : 1'b0;
+
+    wire scl_freq;
+    //A11 = 12000000/(440*(2^7)) = 213.068
+    defparam div.N = 213; //120 for 100khz, 30 for 400khz
+    divide_by_n div(
+        .clk(clock),
+        .reset(reset),
+        .out(scl_freq)
+    );
+
+    reg [23:0] mem [0:159];
+    //integer i;
+    initial begin
+        $readmemh("i2c_bytes_formatted.hex", mem);
+    end
+
+    reg [7:0] mem_adr; //2^8=256 > 160
+    reg [7:0] mem_adr_next;
+
+    reg [1:0] byte_adr; //2'b11 is dev_id
+    reg [1:0] byte_adr_next;
+
+    reg [3:0] bit_adr; //0-7, 8 is ack (9 to stop?)
+    reg [3:0] bit_adr_next;
+
+    reg sda_next;
+    reg scl_next;
+    reg scl_freq_prev;
+    reg scl_freq_prev_prev;
+
+    reg txing;
+    reg txing_next;
+
+    reg stopping;
+    reg stopping_next;
+
+    always @(posedge clock) begin
+        sda <= sda_next;
+        scl <= scl_next;
+        mem_adr <= mem_adr_next;
+        byte_adr <= byte_adr_next;
+        bit_adr <= bit_adr_next;
+        scl_freq_prev <= scl_freq;
+        scl_freq_prev_prev <= scl_freq_prev;
+        txing <= txing_next;
+        stopping <= stopping_next;
+    end
+
+    always @* begin
+        sda_next = sda;
+        scl_next = scl;
+        mem_adr_next = mem_adr;
+        byte_adr_next = byte_adr;
+        bit_adr_next = bit_adr;
+        txing_next = txing;
+        stopping_next = stopping;
+
+        if (reset) begin
+            sda_next = 1'b1;
+            scl_next = 1'b1;
+            mem_adr_next = 8'b0;
+            byte_adr_next = 2'b11;
+            bit_adr_next = 4'h7;
+            txing_next = 1'b0;
+            stopping_next = 1'b0;
+        end else if (mem_adr >= 160) begin //done with transmissions
+            sda_next = 1'b1;
+        end else if (scl_freq && !scl_freq_prev) begin
+            scl_next = 1'b1;
+        end else if (scl_freq_prev && !scl_freq_prev_prev) begin //posedge scl - start, stop
+            if (stopping) begin
+                sda_next = 1'b1; //sda is ack:high, stopping:low, stop condition:high
+                stopping_next = 1'b0;
+                mem_adr_next = mem_adr + 8'b1;
+            end else begin
+                if (byte_adr == 2'b11 && bit_adr == 4'h7 && !txing) begin //start
+                    txing_next = 1'b1;
+                    sda_next = 1'b0;
+                    //mem_adr_next = mem_adr + 8'b1;
+                end else if (byte_adr == 2'b11 && bit_adr == 4'h7 && txing) begin //stop
+                    txing_next = 1'b0;
+                    stopping_next = 1'b1;
+                end
+            end
+
+        end else if (!scl_freq && scl_freq_prev) begin // && txing) begin
+            scl_next = 1'b0;
+        end else if (!scl_freq_prev && scl_freq_prev_prev) begin //negedge scl - transmit
+            if (stopping)
+                sda_next = 1'b0;
+            else if (txing) begin
+                bit_adr_next = bit_adr - 4'b1;
+
+                if (!bit_adr) begin
+                    byte_adr_next = byte_adr + 2'b01;
+                    bit_adr_next = 4'h8;
+                end
+
+                if (bit_adr == 4'h8)
+                    sda_next = 1'b1;
+                else if (byte_adr == 2'b11)
+                    sda_next = !(!({`DEV_ID,1'b0} & (8'b1 << bit_adr)));
+                else
+                    sda_next = mem[mem_adr][{2'b10 - byte_adr, bit_adr[2:0]}];
+
+            end
+        end
+    end
+endmodule
+`endif
+
 
 module hm01b0_jpeg_top(input                  osc_12m,
 
@@ -159,7 +305,7 @@ module hm01b0_jpeg_top(input                  osc_12m,
     // reset circuit
     wire reset;
     resetter r(.clock(osc_12m), .reset(reset));
-    defparam r.count_maxval = 12000000;
+    defparam r.count_maxval = 120000;
 
     ////////////////////////////////////////////////
     // i2c
@@ -186,19 +332,35 @@ module hm01b0_jpeg_top(input                  osc_12m,
     defparam jfpjc.quant_table_file = "./quantization_table_jpeg_annex.hex";
 
     wire fstuff_state;
+    wire fstuff_vsync_out;
     wire fstuff_data_out_valid;
     wire [7:0] fstuff_data_out;
     frame_end_stuffer fstuff(.clock(osc_12m), .reset(reset),
-                             .data_in_valid(jfpjc_hsync), .vsync(jfpjc_vsync), .data_in(jfpjc_data_out),
-                             .state(fstuff_state), .data_out_valid(fstuff_data_out_valid), .data_out(fstuff_data_out));
+
+                             .data_in_valid(jfpjc_hsync),
+                             .vsync_in(jfpjc_vsync),
+                             .data_in(jfpjc_data_out),
+
+                             .state(fstuff_state),
+                             .data_out_valid(fstuff_data_out_valid),
+                             .data_out(fstuff_data_out),
+                             .vsync_out(fstuff_vsync_out));
+
     defparam fstuff.delimiter_length = 2 * 8;
     defparam fstuff.delimiter = 16'hffd9;
 
-    spram_uart_buffer outbuf(.clock(osc_12m), .reset(reset),
-                             .data_in(fstuff_data_out),
-                             .data_in_valid(fstuff_data_out_valid),
-                             .uart_tx(uart_tx_config_copi));
+    wire vsync_out;
+    spram_uart_dual_buffer outbuf(.clock(osc_12m), .reset(reset),
+
+                                  .data_in(fstuff_data_out),
+                                  .data_in_valid(fstuff_data_out_valid),
+                                  .vsync_in(fstuff_vsync_out),
+
+                                  .uart_tx(uart_tx_config_copi),
+                                  .vsync_out(vsync_out));
     defparam outbuf.clock_divider = 7'd6;
-    defparam outbuf.max_address = 15'd8000;
-    assign gpio[6:0] = {fstuff_state, osc_12m, jfpjc_vsync, jfpjc_hsync, trimmed_vsync, trimmed_hsync, trimmed_pixclk};
+    //defparam outbuf.max_address = 15'd8000;
+
+    //assign gpio[6:0] = {uart_tx_config_copi, vsync_out, fstuff_state, osc_12m, jfpjc_vsync, jfpjc_hsync};
+    assign gpio[6:0] = {hm01b0_sda, hm01b0_scl, fstuff_state, osc_12m, jfpjc_vsync, jfpjc_hsync};
 endmodule
