@@ -27,7 +27,6 @@ module jfpjc(input                      nreset,
              output                     obfuscation_table_ebr_rclk,
              input  [7:0]               obfuscation_table_ebr_dout,
 
-
              // interface to quantization table ebr
              output [5:0]               quantization_table_ebr_raddr,
              output                     quantization_table_ebr_ren,
@@ -249,7 +248,7 @@ module jfpjc(input                      nreset,
                                                                        .dout(divisor));
     defparam quantization_table_ebr.init_file = quant_table_file;
 
-//`define SHIFT_INSTEAD_OF_DIVIDE
+`define SHIFT_INSTEAD_OF_DIVIDE
 `ifdef SHIFT_INSTEAD_OF_DIVIDE
     reg signed [15:0] quotient;
     reg         [7:0] quotient_tag;
@@ -259,8 +258,8 @@ module jfpjc(input                      nreset,
     always @(posedge clock) begin
         if (nreset) begin
             case (coefficient_index_delay[5:4])
-                2'b00:        quotient <= (dividend >>> 3) + round_towards_zero_offs;
-                2'b01:        quotient <= (dividend >>> 5) + round_towards_zero_offs;
+                2'b00:        quotient <= (dividend >>> 2) + round_towards_zero_offs;
+                2'b01:        quotient <= (dividend >>> 4) + round_towards_zero_offs;
                 2'b10, 2'b11: quotient <= (dividend >>> 6) + round_towards_zero_offs;
             endcase
             quotient_tag <= { quantizer_output_buffer, coefficient_index_delay };

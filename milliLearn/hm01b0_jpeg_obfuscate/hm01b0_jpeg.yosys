@@ -1,4 +1,4 @@
-read_verilog -defer ../../common/util.v ../../common/uart.v hm01b0_jpeg_top.v ./i2c_init.v ./i2c_master.v ./uart_buffer.v ./grayscale_downsampler.v
+read_verilog -defer ../../common/i2c_memory_writer_peripheral.v ../../common/util.v ../../common/uart.v hm01b0_jpeg_top.v ./uart_buffer.v ./grayscale_downsampler.v
 read_verilog -defer ./jfpjc/jfpjc/verilog/bitpacker.v
 read_verilog -defer ./jfpjc/jfpjc/verilog/hm01b0_ingester.v
 read_verilog -defer ./jfpjc/jfpjc/verilog/loeffler_dct_88.v

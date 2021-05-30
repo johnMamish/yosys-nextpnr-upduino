@@ -6,10 +6,9 @@ VERILOG_FILES:=
 VERILOG_FILES+=$(COMMON)/util.v
 VERILOG_FILES+=$(COMMON)/uart.v
 VERILOG_FILES+=hm01b0_jpeg_top.v
-VERILOG_FILES+=i2c_master.v
-VERILOG_FILES+=i2c_init.v
 VERILOG_FILES+=uart_buffer.v
 VERILOG_FILES+=grayscale_downsampler.v
+VERILOG_FILES+=$(COMMON)/i2c_memory_writer_peripheral.v
 
 JFPJC_VERILOG:=./jfpjc/jfpjc/verilog
 VERILOG_FILES+= $(JFPJC_VERILOG)/bitpacker.v
@@ -30,7 +29,7 @@ VERILOG_FILES+= $(JFPJC_VERILOG)/dct_reset_manager.v
 VERILOG_FILES+= $(JFPJC_VERILOG)/quantizer_manager_fsm.v
 VERILOG_FILES+= $(JFPJC_VERILOG)/padding_trimmer.v
 
-iverilog: $(VERILOG_FILES) i2c_init_bytes.hex
+iverilog: $(VERILOG_FILES) sparkfun_i2c_init_bytes.hex
 	iverilog -Wall -Wno-sensitivity-entire-array -o $@ $(filter %.v,$^)
 
 hm01b0_jpeg.bin: $(VERILOG_FILES) hm01b0_jpeg.pcf hm01b0_jpeg.yosys i2c_init_bytes.hex

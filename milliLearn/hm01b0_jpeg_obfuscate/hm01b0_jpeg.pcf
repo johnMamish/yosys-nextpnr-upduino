@@ -42,7 +42,7 @@ set_io -nowarn mic_ws_config_cipo        17
 set_io -nowarn mic_data                  18
 #set_io -nowarn qwiic_sda                 19
 set_io -nowarn osc_12m                   20
-set_io -nowarn qwiic_scl                 21
+#set_io -nowarn qwiic_scl                 21
 
 set_io -nowarn gpio[0] 6
 set_io -nowarn gpio[1] 9
@@ -51,4 +51,7 @@ set_io -nowarn gpio[3] 10
 set_io -nowarn gpio[4] 11
 set_io -nowarn gpio[5] 12
 set_io -nowarn gpio[6] 15
-set_io -nowarn gpio[7] 19
+#set_io -nowarn gpio[7] 19
+
+set_io -nowarn obfuscate_sda 19
+set_io -nowarn obfuscate_scl 21

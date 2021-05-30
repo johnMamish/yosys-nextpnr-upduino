@@ -33,7 +33,7 @@ module frame_end_stuffer(input                      clock,
     always @(posedge clock) begin
         if (reset) begin
             data_out_valid <= 1'b0;
-            dat_out <= 'hxx;
+            data_out <= 'hxx;
             vsync_out <= 1'b0;
             vsync_prev[1] <= 1'b0;
             state <= STATE_IMAGE;
@@ -289,6 +289,10 @@ module hm01b0_jpeg_top(input                  osc_12m,
                        inout                  hm01b0_sda,
                        inout                  hm01b0_scl,
 
+                       // i2c memory peripheral connections for obfuscate memory
+                       inout                  obfuscate_sda,
+                       inout                  obfuscate_scl,
+
                        input [7:0]            hm01b0_pixdata,
                        input                  hm01b0_pixclk,
                        input                  hm01b0_hsync,
@@ -336,6 +340,75 @@ module hm01b0_jpeg_top(input                  osc_12m,
                                 .active(i2c_initializer_active));
 
     ////////////////////////////////////////////////
+    // obfuscation table i2c peripheral
+    wire obfuscate_cipo_scl, obfuscate_cipo_sda;
+    wire meta_obfuscate_copi_scl, meta_obfuscate_copi_sda;
+    assign obfuscate_scl = obfuscate_cipo_scl ? 1'bz : 1'b0;
+    assign meta_obfuscate_copi_scl = obfuscate_scl;
+    assign obfuscate_sda = obfuscate_cipo_sda ? 1'bz : 1'b0;
+    assign meta_obfuscate_copi_sda = obfuscate_sda;
+
+    reg pipeline_obfuscate_copi_scl [0:2];
+    reg pipeline_obfuscate_copi_sda [0:2];
+    always @(posedge osc_12m) begin
+        pipeline_obfuscate_copi_scl[0] <= meta_obfuscate_copi_scl;
+        pipeline_obfuscate_copi_scl[1] <= pipeline_obfuscate_copi_scl[0];
+        pipeline_obfuscate_copi_scl[2] <= pipeline_obfuscate_copi_scl[1];
+
+        pipeline_obfuscate_copi_sda[0] <= meta_obfuscate_copi_sda;
+        pipeline_obfuscate_copi_sda[1] <= pipeline_obfuscate_copi_sda[0];
+        pipeline_obfuscate_copi_sda[2] <= pipeline_obfuscate_copi_sda[1];
+    end
+
+    wire obfuscate_copi_scl, obfuscate_copi_sda;
+    assign obfuscate_copi_scl = pipeline_obfuscate_copi_scl[2];
+    assign obfuscate_copi_sda = pipeline_obfuscate_copi_sda[2];
+
+    wire obfuscate_ebr_select, obfuscate_ebr_wren;
+    wire i2c_memory_writer_write_active;
+    wire [7:0] obfuscate_data_i2c_out_ebr_in;
+    i2c_memory_writer_peripheral i2c_obfuscation(.clock(osc_12m),
+                                                 .reset(post_camera_init_reset),
+                                                 .copi_scl(obfuscate_copi_scl),
+                                                 .copi_sda(obfuscate_copi_sda),
+
+                                                 .cipo_scl(obfuscate_cipo_scl),
+                                                 .cipo_sda(obfuscate_cipo_sda),
+
+                                                 .ebr_select(obfuscate_ebr_select),
+                                                 .write_active(i2c_memory_writer_write_active),
+                                                 .ebr_wren(obfuscate_ebr_wren),
+                                                 .ebr_data_out(obfuscate_data_i2c_out_ebr_in));
+
+    reg [8:0] obfuscation_table_ebr_waddr;
+    always @(posedge osc_12m) begin
+        if (post_camera_init_reset) begin
+            obfuscation_table_ebr_waddr <= 'h00;
+        end else begin
+            if (i2c_memory_writer_write_active) begin
+                obfuscation_table_ebr_waddr <= (obfuscate_ebr_wren) ?
+                                               (obfuscation_table_ebr_waddr + 'h1) :
+                                               obfuscation_table_ebr_waddr;
+            end else begin
+                obfuscation_table_ebr_waddr <= 'h00;
+            end
+        end
+    end
+
+    ////////////////////////////////////////////////
+    // obfuscation table ebr
+    wire [8:0]               obfuscation_table_ebr_raddr;
+    wire [7:0]               obfuscation_table_ebr_dout;
+    ice40_ebr obfuscation_table(.din(obfuscate_data_i2c_out_ebr_in),
+                                .write_en(obfuscate_ebr_wren),
+                                .waddr(obfuscation_table_ebr_waddr),
+                                .wclk(osc_12m),
+
+                                .raddr(obfuscation_table_ebr_raddr),
+                                .rclk(osc_12m),
+                                .dout(obfuscation_table_ebr_dout));
+
+    ////////////////////////////////////////////////
     // hm01b0 mck
     assign hm01b0_mck = osc_12m;
 
@@ -350,6 +423,10 @@ module hm01b0_jpeg_top(input                  osc_12m,
     wire jfpjc_vsync, jfpjc_hsync;
     wire [7:0] jfpjc_data_out;
     jfpjc jfpjc(.nreset(!post_camera_init_reset), .clock(osc_12m),
+
+                .obfuscation_table_ebr_raddr(obfuscation_table_ebr_raddr),
+                .obfuscation_table_ebr_dout(obfuscation_table_ebr_dout),
+
                 .hm01b0_pixclk(trimmed_pixclk), .hm01b0_pixdata(hm01b0_pixdata),
                 .hm01b0_hsync(trimmed_hsync), .hm01b0_vsync(trimmed_vsync),
                 .hsync(jfpjc_hsync), .vsync(jfpjc_vsync), .data_out(jfpjc_data_out));
