@@ -1,0 +1,7 @@
+# Exclude lattice files used only in testbench. These files are covered under Lattice's
+# Reference Design Licence Agreement and can be downloaded from latticesemi.com with a free 
+# account.
+lattice_i2c
+*.csv
+*.log
+
