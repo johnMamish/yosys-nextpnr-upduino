@@ -196,14 +196,14 @@ module jfpjc(input                      nreset,
     always @(posedge clock) begin
         if (nreset) begin
             if (!dct_nreset_prev && dct_nreset) begin
-                obfuscation_table_ebr_raddr <= (obfuscation_table_ebr_raddr == 240) ?
+                obfuscation_table_ebr_raddr <= (obfuscation_table_ebr_raddr == 'd239) ?
                                                'h00 : obfuscation_table_ebr_raddr + 1;
             end else begin
                 obfuscation_table_ebr_raddr <= obfuscation_table_ebr_raddr;
             end
             dct_nreset_prev <= dct_nreset;
         end else begin
-            obfuscation_table_ebr_raddr <= 'd240;
+            obfuscation_table_ebr_raddr <= 'd239;
             dct_nreset_prev <= 1'b1;
         end
     end

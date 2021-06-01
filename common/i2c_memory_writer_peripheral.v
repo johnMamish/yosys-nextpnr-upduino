@@ -29,7 +29,10 @@ module i2c_memory_writer_peripheral(input            clock,
                                     output reg       write_active,
                                     output reg       ebr_select,
                                     output reg       ebr_wren,
-                                    output reg [7:0] ebr_data_out);
+                                    output reg [7:0] ebr_data_out,
+
+                                    output [1:0]      state_out,
+                                    output [3:0]      counter_out);
     assign cipo_scl = 1'b1;
     reg cipo_sda_next;
     reg ebr_select_next;
@@ -45,6 +48,9 @@ module i2c_memory_writer_peripheral(input            clock,
     reg scl; //sample copi_scl
     reg scl_next;
     reg write_active_next;
+
+    assign state_out = state;
+    assign counter_out = counter;
 
     always @(posedge clock) begin
         cipo_sda <= cipo_sda_next;
@@ -85,16 +91,16 @@ module i2c_memory_writer_peripheral(input            clock,
             state_next = `IDLE;
             counter_next = 4'h0;
             write_active_next = 1'b0;
-        //start
         end else if (scl_next == 1'b1 && scl == 1'b1 && sda_next == 1'b0 && sda == 1'b1) begin
+            // handle start condition: move to the DEV_ADR state
             cipo_sda_next = 1'b1;
             ebr_select_next = 1'bx;
             ebr_data_out_next = 8'h00; //00 bc < | data_out> used
 
             state_next = `DEV_ADR;
             counter_next = 4'h0;
-        //stop
         end else if (scl_next == 1'b1 && scl == 1'b1 && sda_next == 1'b1 && sda == 1'b0) begin
+            // handle stop condition
             cipo_sda_next = 1'b1;
             ebr_select_next = 1'bx;
             ebr_data_out_next = 8'hxx;
@@ -102,35 +108,40 @@ module i2c_memory_writer_peripheral(input            clock,
             state_next = `IDLE;
             counter_next = 4'h0;
         end else begin
-
             case (state)
                 `IDLE: begin
-                    //wait for start condition
+                    // all signals retain their default values until a start condition is detected.
                     write_active_next = 1'b0;
                 end
 
                 `DEV_ADR: begin
                     write_active_next = 1'b0;
 
-                    //posedge scl
                     if (scl_next == 1'b1 && scl == 1'b0) begin
+                        //posedge scl
                         if (counter <= 4'h7) begin
+                            // if we're not in the ACK stage, clock in a new bit.
                             ebr_data_out_next = ebr_data_out | ({sda_next,7'b0000000} >> counter);
                         end
+
+                        // always increment the counter on the posedge of scl
                         counter_next = counter + 4'h1;
-                    //negedge scl
                     end else if (scl_next == 1'b0 && scl == 1'b1) begin
-                        //begin ack
+                        //negedge scl
                         if (counter == 4'h8) begin
                             if (ebr_data_out == `DEVICE_ADDRESS) begin
+                                // If we're on the falling edge of SCL on the 8th bit, we should
+                                // pull SDA down for the ack if the byte we read in matches the
+                                // device address.
                                 cipo_sda_next = 1'b0;
                             end else begin
+                                // The device address doesn't match, go back to the idle state and
                                 state_next = `IDLE;
                                 ebr_data_out_next = 8'hxx;
                                 counter_next = 4'h0;
                             end
-                        //end ack
                         end else if (counter == 4'h9) begin
+                            // Falling edge of SCL after ACK complete.
                             cipo_sda_next = 1'b1;
                             state_next = `EBR_ADR;
                             ebr_data_out_next = 8'h00;
@@ -196,8 +207,8 @@ module i2c_memory_writer_peripheral(input            clock,
                         if (counter == 4'h8) begin
                             cipo_sda_next = 1'b0;
                             ebr_wren_next = 1'b1;
-                        //end ack
                         end else if (counter == 4'h9) begin
+                            //end ack
                             cipo_sda_next = 1'b1;
                             ebr_data_out_next = 8'h00;
                             counter_next = 4'h0;

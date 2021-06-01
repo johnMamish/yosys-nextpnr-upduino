@@ -70,7 +70,7 @@
 
 // config frame rate
 0340_01   // smia frame length: 0x027f
-0341_04
+0341_80
 0342_01   // smia line length: 0x0177
 0343_80
 

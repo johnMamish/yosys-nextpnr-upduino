@@ -33,7 +33,7 @@ module frame_end_stuffer(input                      clock,
     always @(posedge clock) begin
         if (reset) begin
             data_out_valid <= 1'b0;
-            data_out <= 'hxx;
+            dat_out <= 'hxx;
             vsync_out <= 1'b0;
             vsync_prev[1] <= 1'b0;
             state <= STATE_IMAGE;
@@ -344,6 +344,7 @@ module hm01b0_jpeg_top(input                  osc_12m,
     wire obfuscate_cipo_scl, obfuscate_cipo_sda;
     wire meta_obfuscate_copi_scl, meta_obfuscate_copi_sda;
     assign obfuscate_scl = obfuscate_cipo_scl ? 1'bz : 1'b0;
+    //assign obfuscate_scl = 1'bz;
     assign meta_obfuscate_copi_scl = obfuscate_scl;
     assign obfuscate_sda = obfuscate_cipo_sda ? 1'bz : 1'b0;
     assign meta_obfuscate_copi_sda = obfuscate_sda;
@@ -378,7 +379,13 @@ module hm01b0_jpeg_top(input                  osc_12m,
                                                  .ebr_select(obfuscate_ebr_select),
                                                  .write_active(i2c_memory_writer_write_active),
                                                  .ebr_wren(obfuscate_ebr_wren),
-                                                 .ebr_data_out(obfuscate_data_i2c_out_ebr_in));
+                                                 .ebr_data_out(obfuscate_data_i2c_out_ebr_in),
+
+                                                 .state_out(gpio[1:0]),
+                                                 .counter_out(gpio[5:2]));
+
+    //assign gpio[2] = obfuscate_cipo_scl;
+    //assign gpio[3] = obfuscate_cipo_sda;
 
     reg [8:0] obfuscation_table_ebr_waddr;
     always @(posedge osc_12m) begin
@@ -463,5 +470,5 @@ module hm01b0_jpeg_top(input                  osc_12m,
     //defparam outbuf.max_address = 15'd8000;
 
     //assign gpio[6:0] = {uart_tx_config_copi, vsync_out, fstuff_state, osc_12m, jfpjc_vsync, jfpjc_hsync};
-    assign gpio[7:0] = {trimmed_hsync, trimmed_vsync, vsync_out, uart_tx_config_copi, jfpjc_vsync, jfpjc_hsync, hm01b0_vsync, hm01b0_hsync};
+    //assign gpio[7:0] = {trimmed_hsync, trimmed_vsync, vsync_out, uart_tx_config_copi, jfpjc_vsync, jfpjc_hsync, hm01b0_vsync, hm01b0_hsync};
 endmodule
